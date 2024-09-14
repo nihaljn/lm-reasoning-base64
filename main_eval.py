@@ -1,7 +1,7 @@
 import json
 import os
 
-from mmlu_eval import MMLUEval
+from mmlu_eval import MMLUEval, MMLUEval_Base64
 from sampler.chat_completion_sampler import (OPENAI_SYSTEM_MESSAGE_API,
                                               OPENAI_SYSTEM_MESSAGE_CHATGPT,
                                               ChatCompletionSampler)
@@ -11,11 +11,13 @@ from sampler.chat_completion_sampler import (OPENAI_SYSTEM_MESSAGE_API,
 
 def main():
     debug = False
+    num_threads = 3
     sampler_name = "gpt-4o_assistant"
     output_root_dir = "data/model_outputs"
     temperature = 0.5
     num_examples = None
     max_tokens = 2048
+    eval_name = "mmlu_base64"
 
     inference_args = {
         "temperature": temperature,
@@ -59,30 +61,29 @@ def main():
         match eval_name:
             case "mmlu":
                 return MMLUEval(num_examples=1 if debug else num_examples, **kwargs)
+            case "mmlu_base64":
+                return MMLUEval_Base64(num_examples=1 if debug else num_examples, **kwargs)
             case _:
                 raise Exception(f"Unrecoginized eval type: {eval_name}")
 
     eval_config = {
-        "mmlu": {"category": "stem", "num_threads": 10}
+        "mmlu": {"category": "stem", "num_threads": num_threads},
+        "mmlu_base64": {"category": "stem", "num_threads": num_threads}
     }
-    evals = {
-        eval_name: get_evals(eval_name, **eval_config.get(eval_name, {})) 
-        for eval_name in ["mmlu"]
-    }
+    
     debug_suffix = "_DEBUG" if debug else ""
-
     sampler = samplers[sampler_name]
-    for eval_name, eval_obj in evals.items():
-        suffix = ""
-        for k, v in eval_config.get(eval_name, {}).items():
-            suffix += f"_{k}={v}"
-        for k, v in inference_args.items():
-            suffix += f"_{k}={v}"
-        
-        output_fp = os.path.join(
-            output_root_dir, f"{sampler_name}_{eval_name}{suffix}{debug_suffix}.jsonl"
-        )
-        result = eval_obj(sampler, output_fp)
+    eval_obj = get_evals(eval_name, **eval_config.get(eval_name, {}))
+    suffix = ""
+    for k, v in eval_config.get(eval_name, {}).items():
+        suffix += f"_{k}={v}"
+    for k, v in inference_args.items():
+        suffix += f"_{k}={v}"
+    
+    output_fp = os.path.join(
+        output_root_dir, f"{sampler_name}_{eval_name}{suffix}{debug_suffix}.jsonl"
+    )
+    result = eval_obj(sampler, output_fp)
 
 
 if __name__ == "__main__":

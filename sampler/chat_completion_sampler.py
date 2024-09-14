@@ -36,6 +36,11 @@ class ChatCompletionSampler(SamplerBase):
         self.max_tokens = max_tokens
         self.image_format = "url"
 
+    def update_parameters(self, **kwargs):
+        self.system_message = kwargs.get("system_message", self.system_message)
+        self.temperature = kwargs.get("temperature", self.temperature)
+        self.max_tokens = kwargs.get("max_tokens", self.max_tokens)
+
     def _handle_image(
         self, image: str, encoding: str = "base64", format: str = "png", fovea: int = 768
     ):

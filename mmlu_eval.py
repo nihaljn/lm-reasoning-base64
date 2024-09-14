@@ -14,6 +14,7 @@ import pandas
 import common
 from common import ANSWER_PATTERN_MULTICHOICE, format_multichoice_question
 from custom_types import Eval, SamplerBase
+from translate import english_to_base64, base64_to_english
 
 subject2category = {
     "abstract_algebra": "stem",
@@ -74,6 +75,91 @@ subject2category = {
     "virology": "other",
     "world_religions": "humanities",
 }
+SAMPLER = None
+
+
+def item_handler(row: dict) -> dict:
+    global SAMPLER
+    # create the prompt
+    prompt = format_multichoice_question(row)
+    prompt_messages = [
+        SAMPLER._pack_message(content=prompt, role="user")
+    ]
+    # get the response
+    ct = time.time()
+    response_text = SAMPLER(prompt_messages)
+    elapsed = time.time() - ct
+    # look for the answer
+    match = re.search(ANSWER_PATTERN_MULTICHOICE, response_text)
+    extracted_answer = match.group(1) if match else None
+    # score
+    score = 1.0 if extracted_answer == row["Answer"] else 0.0
+    # return the session info
+    ret_dict = {
+        "index": row["UniqueIndex"],
+        "prompt": prompt,
+        "correct_answer": row["Answer"],
+        "extracted_answer": extracted_answer,
+        "score": score,
+        "category": subject2category.get(row["Subject"], "other"),
+        "_subject": row["Subject"],
+        "_response_text": response_text,
+        "_elapsed_time": elapsed,
+    }
+    with open(row["output_file"], "a") as f:
+        f.write(json.dumps(ret_dict)+"\n")
+    return ret_dict
+
+
+def item_handler_base64(row: dict) -> dict:
+    global SAMPLER
+
+    base64_log_dict = {}
+
+    # create the prompt
+    prompt = format_multichoice_question(row)
+    base64_log_dict["_original_prompt"] = prompt
+    
+    # translate to base64
+    prompt = english_to_base64(prompt)
+    
+    # get the response
+    prompt_messages = [
+        SAMPLER._pack_message(content=prompt, role="user")
+    ]
+    ct = time.time()
+    response_text = SAMPLER(prompt_messages)
+    elapsed = time.time() - ct
+
+    # translate back to English
+    try:
+        base64_log_dict["_base64_response"] = response_text
+        response_text = base64_to_english(response_text)
+    except Exception as e:
+        base64_log_dict["_base64_error"] = str(e)
+        response_text = ""
+    
+    # look for the answer
+    match = re.search(ANSWER_PATTERN_MULTICHOICE, response_text)
+    extracted_answer = match.group(1) if match else None
+    # score
+    score = 1.0 if extracted_answer == row["Answer"] else 0.0
+    # return the session info
+    ret_dict = {
+        "index": row["UniqueIndex"],
+        "prompt": prompt,
+        "correct_answer": row["Answer"],
+        "extracted_answer": extracted_answer,
+        "score": score,
+        "category": subject2category.get(row["Subject"], "other"),
+        "_subject": row["Subject"],
+        "_response_text": response_text,
+        "_elapsed_time": elapsed,
+    }
+    ret_dict.update(base64_log_dict)
+    with open(row["output_file"], "a") as f:
+        f.write(json.dumps(ret_dict)+"\n")
+    return ret_dict
 
 
 class MMLUEval(Eval):
@@ -95,38 +181,11 @@ class MMLUEval(Eval):
             examples = random.Random(0).sample(examples, num_examples)
         self.examples = examples
         self.num_threads = num_threads
+        self.fn = item_handler
 
     def __call__(self, sampler: SamplerBase, output_file: str) -> list[dict]:
-        def fn(row: dict):
-            # create the prompt
-            prompt = format_multichoice_question(row)
-            prompt_messages = [
-                sampler._pack_message(content=prompt, role="user")
-            ]
-            # get the response
-            ct = time.time()
-            response_text = sampler(prompt_messages)
-            elapsed = time.time() - ct
-            # look for the answer
-            match = re.search(ANSWER_PATTERN_MULTICHOICE, response_text)
-            extracted_answer = match.group(1) if match else None
-            # score
-            score = 1.0 if extracted_answer == row["Answer"] else 0.0
-            # return the session info
-            ret_dict = {
-                "index": row["UniqueIndex"],
-                "prompt": prompt,
-                "correct_answer": row["Answer"],
-                "extracted_answer": extracted_answer,
-                "score": score,
-                "category": subject2category.get(row["Subject"], "other"),
-                "_subject": row["Subject"],
-                "_response_text": response_text,
-                "_elapsed_time": elapsed,
-            }
-            with open(row["output_file"], "a") as f:
-                f.write(json.dumps(ret_dict)+"\n")
-            return ret_dict
+        global SAMPLER
+        SAMPLER = sampler
 
         for i, example in enumerate(self.examples):
             # add a target file path to each example depending on num_threads
@@ -152,7 +211,9 @@ class MMLUEval(Eval):
                     done_indices.add(json.loads(line)["index"])
             self.examples = [e for e in self.examples if e["UniqueIndex"] not in done_indices]
             # run the examples
-            results = common.map_with_progress(fn, self.examples, num_threads=self.num_threads)
+            results = common.map_with_progress(
+                self.fn, self.examples, num_threads=self.num_threads
+            )
         except Exception as e:
             results = []
             print(f"Error: {e}")
@@ -171,3 +232,22 @@ class MMLUEval(Eval):
         print(f"Results written to {output_file}")
 
         return results
+
+
+class MMLUEval_Base64(MMLUEval):
+    """MMLU Eval but in Base64"""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.fn = item_handler_base64
+    
+    def __call__(self, sampler: SamplerBase, output_file: str) -> list[dict]:
+        """Override the call method to handle base64 translation"""
+        global SAMPLER 
+        SAMPLER = sampler
+        _sys_message = SAMPLER.system_message
+        SAMPLER.update_parameters(
+            system_message="You are a helpful assistant who can understand and respond only in base64."
+        )
+        ret = super().__call__(SAMPLER, output_file)
+        SAMPLER.update_parameters(system_message=_sys_message)
+        return ret
