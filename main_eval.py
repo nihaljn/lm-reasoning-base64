@@ -1,23 +1,31 @@
 import json
 import os
 
+from arithmetic_eval import (ArithmeticEval, ArithmeticEval_Base64,
+                             ArithmeticEval_FewShot,
+                             ArithmeticEval_FewShot_Base64)
 from mmlu_eval import MMLUEval, MMLUEval_Base64
 from sampler.chat_completion_sampler import (OPENAI_SYSTEM_MESSAGE_API,
-                                              OPENAI_SYSTEM_MESSAGE_CHATGPT,
-                                              ChatCompletionSampler)
+                                             OPENAI_SYSTEM_MESSAGE_CHATGPT,
+                                             ChatCompletionSampler)
 
 # from .sampler.claude_sampler import ClaudeCompletionSampler, CLAUDE_SYSTEM_MESSAGE_LMSYS
 
 
 def main():
     debug = False
-    num_threads = 3
+    num_threads = 1
     sampler_name = "gpt-4o_assistant"
     output_root_dir = "data/model_outputs"
-    temperature = 0.5
+    temperature = 0.0
     num_examples = None
     max_tokens = 2048
-    eval_name = "mmlu_base64"
+    few_shot_k = 5
+    
+    # eval_name = "mmlu_base64"
+    eval_name = "arithmetic_few_shot_base64"
+    import sys
+    n_digits = int(sys.argv[1])
 
     inference_args = {
         "temperature": temperature,
@@ -63,12 +71,24 @@ def main():
                 return MMLUEval(num_examples=1 if debug else num_examples, **kwargs)
             case "mmlu_base64":
                 return MMLUEval_Base64(num_examples=1 if debug else num_examples, **kwargs)
+            case "arithmetic":
+                return ArithmeticEval(num_examples=1 if debug else num_examples, **kwargs)
+            case "arithmetic_base64":
+                return ArithmeticEval_Base64(num_examples=1 if debug else num_examples, **kwargs)
+            case "arithmetic_few_shot":
+                return ArithmeticEval_FewShot(num_examples=1 if debug else num_examples, **kwargs)
+            case "arithmetic_few_shot_base64":
+                return ArithmeticEval_FewShot_Base64(num_examples=1 if debug else num_examples, **kwargs)
             case _:
                 raise Exception(f"Unrecoginized eval type: {eval_name}")
 
     eval_config = {
         "mmlu": {"category": "stem", "num_threads": num_threads},
-        "mmlu_base64": {"category": "stem", "num_threads": num_threads}
+        "mmlu_base64": {"category": "stem", "num_threads": num_threads},
+        "arithmetic": {"n_digits": n_digits, "op": "addition", "num_threads": num_threads},
+        "arithmetic_base64": {"n_digits": n_digits, "op": "addition", "num_threads": num_threads},
+        "arithmetic_few_shot": {"n_digits": n_digits, "op": "addition", "num_threads": num_threads, "k": few_shot_k},
+        "arithmetic_few_shot_base64": {"n_digits": n_digits, "op": "addition", "num_threads": num_threads, "k": few_shot_k},
     }
     
     debug_suffix = "_DEBUG" if debug else ""
