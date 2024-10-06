@@ -20,6 +20,18 @@ C) {C}
 D) {D}
 """.strip()
 
+
+QUERY_TEMPLATE_MULTICHOICE_NO_COT = """
+Answer the following multiple choice question. The only line of your response should be of the following format: 'Answer: $LETTER' (without quotes) where LETTER is one of ABCD.
+
+{Question}
+
+A) {A}
+B) {B}
+C) {C}
+D) {D}
+""".strip()
+
 ANSWER_PATTERN_MULTICHOICE = r"(?i)Answer\s*:\s*([A-D])"
 ANSWER_PATTERN = r"(?i)Answer\s*:\s*([^\n]+)"
 
@@ -101,6 +113,14 @@ HTML_JINJA = """
 
 def format_multichoice_question(row):
     return QUERY_TEMPLATE_MULTICHOICE.format(**row)
+
+
+def format_multichoice_question_no_cot(row):
+    return QUERY_TEMPLATE_MULTICHOICE_NO_COT.format(**row)
+
+
+def format_multichoice_answer_no_cot(row):
+    return f"Answer: {row['Answer']}"
 
 
 def check_equality(sampler: SamplerBase, expr1: str, expr2: str):

@@ -4,7 +4,8 @@ import os
 from arithmetic_eval import (ArithmeticEval, ArithmeticEval_Base64,
                              ArithmeticEval_FewShot,
                              ArithmeticEval_FewShot_Base64)
-from mmlu_eval import MMLUEval, MMLUEval_Base64
+from mmlu_eval import (MMLUEval, MMLUEval_Base64, MMLUEval_FewShot,
+                       MMLUEval_FewShot_Base64)
 from sampler.chat_completion_sampler import (OPENAI_SYSTEM_MESSAGE_API,
                                              OPENAI_SYSTEM_MESSAGE_CHATGPT,
                                              ChatCompletionSampler)
@@ -21,11 +22,17 @@ def main():
     num_examples = None
     max_tokens = 2048
     few_shot_k = 5
+    n_digits = None
     
-    # eval_name = "mmlu_base64"
-    eval_name = "arithmetic_few_shot_base64"
     import sys
-    n_digits = int(sys.argv[1])
+    assert len(sys.argv) >= 2, "Please provide the eval name"
+    eval_name = sys.argv[1]
+    if "arithmetic" in eval_name:
+        assert len(sys.argv) == 3, "Please provide the number of digits for arithmetic eval"
+        try:
+            n_digits = int(sys.argv[1])
+        except:
+            raise ValueError("The number of digits should be an integer but you provided", sys.argv[1])
 
     inference_args = {
         "temperature": temperature,
@@ -71,6 +78,10 @@ def main():
                 return MMLUEval(num_examples=1 if debug else num_examples, **kwargs)
             case "mmlu_base64":
                 return MMLUEval_Base64(num_examples=1 if debug else num_examples, **kwargs)
+            case "mmlu_few_shot":
+                return MMLUEval_FewShot(num_examples=1 if debug else num_examples, **kwargs)
+            case "mmlu_few_shot_base64":
+                return MMLUEval_FewShot_Base64(num_examples=1 if debug else num_examples, **kwargs)
             case "arithmetic":
                 return ArithmeticEval(num_examples=1 if debug else num_examples, **kwargs)
             case "arithmetic_base64":
@@ -85,6 +96,8 @@ def main():
     eval_config = {
         "mmlu": {"category": "stem", "num_threads": num_threads},
         "mmlu_base64": {"category": "stem", "num_threads": num_threads},
+        "mmlu_few_shot": {"category": "stem", "num_threads": num_threads, "k": few_shot_k},
+        "mmlu_few_shot_base64": {"category": "stem", "num_threads": num_threads, "k": few_shot_k},
         "arithmetic": {"n_digits": n_digits, "op": "addition", "num_threads": num_threads},
         "arithmetic_base64": {"n_digits": n_digits, "op": "addition", "num_threads": num_threads},
         "arithmetic_few_shot": {"n_digits": n_digits, "op": "addition", "num_threads": num_threads, "k": few_shot_k},
