@@ -20,15 +20,18 @@ EVALUATOR_STORE = {
 
 
 def runner(args: tuple) -> dict:
-    evaluator, sample, few_shot_examples = args
+    global evaluators
+    evaluator_index, sample, few_shot_examples = args
     prompt, target = sample["prompt"], sample["target"]
     metadata = {"index": sample["index"]}
-    return evaluator.evaluate(
-        prompt, target, metadata, few_shot_examples
+    return evaluators[evaluator_index].evaluate(
+        prompt, target, metadata, few_shot_examples, 
+        preprocess_few_shot_examples=True
     )
 
 
 def main():
+    global evaluators
     # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, required=True)
@@ -48,12 +51,12 @@ def main():
 
     # read the data
     assert os.path.exists(args.data_path), f"{args.data_path} does not exist"
-    data = pd.read_csv(args.data_path)[:args.num_examples]
+    data = pd.read_csv(args.data_path).astype(str)[:args.num_examples]
     if args.few_shot_data_path:
         assert os.path.exists(args.few_shot_data_path), (
             f"{args.few_shot_data_path} does not exist"
         )
-        few_shot_data = pd.read_csv(args.few_shot_data_path)
+        few_shot_data = pd.read_csv(args.few_shot_data_path).to_dict("records")
     else:
         few_shot_data = None
 
@@ -65,6 +68,9 @@ def main():
     EvaluatorClass = EVALUATOR_STORE[args.evaluator]
     filename = f"{args.model_name}_{args.num_examples}_{args.temperature}.jsonl"
     output_path = os.path.join(args.out_root_dir, filename)
+    if not os.path.exists(args.out_root_dir):
+        print(f"Creating directory: {args.out_root_dir}")
+        os.makedirs(args.out_root_dir)
     evaluators = [
         EvaluatorClass(
             model_name=args.model_name,
@@ -79,8 +85,8 @@ def main():
     # distribute tasks
     tasks = []
     for i in range(len(data)):
-        evaluator = evaluators[i % args.num_threads]
-        task = (evaluator, data.iloc[i], few_shot_data)
+        # evaluator = evaluators[i % args.num_threads]
+        task = (i % args.num_threads, data.iloc[i], few_shot_data)
         tasks.append(task)
     # run the tasks
     with Pool(args.num_threads) as p:

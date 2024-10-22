@@ -1,4 +1,4 @@
-from time import time
+import time
 
 from sampler.chat_completion_sampler import ChatCompletionSampler
 
@@ -42,21 +42,23 @@ class EvaluatorBase:
             # preprocess user message
             if message["role"] == "user":
                 msg = self.preprocess_user_message(message["content"])
+                message = {"role": "user", "content": msg}
             # preprocess assistant message
             elif message["role"] == "assistant":
                 msg = self.preprocess_asst_message(message["content"])
+                message = {"role": "assistant", "content": msg}
             else:
                 raise ValueError(f"Invalid role: {message['role']}")
-            preprocessed_messages.append(msg)
+            preprocessed_messages.append(message)
         return preprocessed_messages
     
 
     def infer(self, messages: list[str]) -> dict:
         """Get model output"""
         # get model output
-        ct = time()
+        ct = time.time()
         response = self.completion_sampler(messages)
-        elapsed = time() - ct
+        elapsed = time.time() - ct
         # sleep to maintain the rate limit
         if self.rpm_limit:
             sleep_time = 60 / self.rpm_limit
@@ -89,16 +91,23 @@ class EvaluatorBase:
         prompt: str, 
         target: str, 
         metadata: dict, 
-        few_shot_examples: list[dict] | None = None
+        few_shot_examples: list[dict] | None = None,
+        preprocess_few_shot_examples: bool = False
     ):
         """Evaluate the model on the given input.
         If few_shot_examples is provided, it will be used,
         else the class-level few_shot_examples will be used."""
         # input messages
         this_message = {"role": "user", "content": prompt}
-        if not few_shot_examples and self.few_shot_examples:
+        if few_shot_examples is None and self.few_shot_examples is not None:
             few_shot_examples = self.few_shot_examples
-        if few_shot_examples:
+
+        if few_shot_examples is not None:
+            fse = []
+            for ex in few_shot_examples:
+                fse.append({"role": "user", "content": ex["prompt"]})
+                fse.append({"role": "assistant", "content": ex["target"]})
+            few_shot_examples = fse
             messages = few_shot_examples + [this_message]
         else:
             messages = [this_message]
@@ -113,7 +122,7 @@ class EvaluatorBase:
         ret_dict.update(response)
         
         # postprocess output
-        hypothesis = self.postprocess(response)
+        hypothesis = self.postprocess(response["response_text"])
         ret_dict.update(hypothesis)
 
         # score the response
