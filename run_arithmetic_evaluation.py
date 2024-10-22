@@ -47,16 +47,19 @@ def main():
     parser.add_argument("--evaluator", type=str, default="english_evaluator",)
     parser.add_argument("--model_name", type=str, default="gpt-4o",
                         choices=["gpt-4o"])
+    parser.add_argument("--few_shot_k", type=int, default=0)
     args = parser.parse_args()
 
     # read the data
     assert os.path.exists(args.data_path), f"{args.data_path} does not exist"
     data = pd.read_csv(args.data_path).astype(str)[:args.num_examples]
-    if args.few_shot_data_path:
+    if args.few_shot_data_path and args.few_shot_k > 0:
         assert os.path.exists(args.few_shot_data_path), (
             f"{args.few_shot_data_path} does not exist"
         )
         few_shot_data = pd.read_csv(args.few_shot_data_path).to_dict("records")
+        args.few_shot_k = min(args.few_shot_k, len(few_shot_data))
+        few_shot_data = few_shot_data[:args.few_shot_k]
     else:
         few_shot_data = None
 
@@ -64,9 +67,10 @@ def main():
         raise ValueError("num_threads should be a positive integer")
     
     # set up evaluators
+    args.num_threads = min(args.num_threads, len(data))
     rpm_limit = args.rpm_limit / args.num_threads
     EvaluatorClass = EVALUATOR_STORE[args.evaluator]
-    filename = f"{args.model_name}_{args.num_examples}_{args.temperature}.jsonl"
+    filename = f"{args.model_name}_n{args.num_examples}_t{args.temperature}_k{args.few_shot_k}.jsonl"
     output_path = os.path.join(args.out_root_dir, filename)
     if not os.path.exists(args.out_root_dir):
         print(f"Creating directory: {args.out_root_dir}")
