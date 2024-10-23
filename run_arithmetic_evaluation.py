@@ -52,7 +52,10 @@ def main():
 
     # read the data
     assert os.path.exists(args.data_path), f"{args.data_path} does not exist"
-    data = pd.read_csv(args.data_path).astype(str)[:args.num_examples]
+    data = pd.read_csv(args.data_path).astype(str)
+    if not args.num_examples or args.num_examples > len(data):
+        args.num_examples = len(data)
+    data = data[:args.num_examples]
     if args.few_shot_data_path and args.few_shot_k > 0:
         assert os.path.exists(args.few_shot_data_path), (
             f"{args.few_shot_data_path} does not exist"
@@ -94,7 +97,7 @@ def main():
         tasks.append(task)
     # run the tasks
     with Pool(args.num_threads) as p:
-        list(tqdm(p.imap(runner, tasks), total=len(tasks)))
+        list(tqdm(p.imap(runner, tasks), total=len(tasks), ncols=80))
     
     # cleanup
     with open(output_path, "w") as f:

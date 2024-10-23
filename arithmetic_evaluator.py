@@ -41,7 +41,6 @@ class ArithmeticEvaluator(EvaluatorBase):
     def _before_exit(self, ret_dict: dict) -> dict:
         """Perform any final operations before returning"""
         # deal with any complex types
-        print(ret_dict)
         if self.out_path:
             with open(self.out_path, "a") as f:
                 f.write(json.dumps(ret_dict)+"\n")

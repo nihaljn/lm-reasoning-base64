@@ -1,0 +1,5 @@
+__pycache__/
+data/
+notebooks/
+simple-evals/
+model_outputs/
