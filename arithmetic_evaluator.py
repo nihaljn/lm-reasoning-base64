@@ -2,6 +2,7 @@ import json
 import re
 
 from evaluator import EvaluatorBase
+from translate import english_to_base64, base64_to_english
 
 
 class ArithmeticEvaluator(EvaluatorBase):
@@ -34,7 +35,7 @@ class ArithmeticEvaluator(EvaluatorBase):
     def postprocess(self, message: str) -> dict:
         """Postprocess model output"""
         match = re.search(self.answer_regex, message)
-        extracted_answer = match.group(1) if match else None
+        extracted_answer = match.group(1) if match else ""
         return {"extracted_answer": extracted_answer}
     
 
@@ -44,3 +45,37 @@ class ArithmeticEvaluator(EvaluatorBase):
         if self.out_path:
             with open(self.out_path, "a") as f:
                 f.write(json.dumps(ret_dict)+"\n")
+
+
+class ArithmeticEvaluator_Base64(ArithmeticEvaluator):
+    """Arithmetic Evaluator with base64 encoding"""
+    def preprocess_user_message(self, message: str) -> str:
+        """Preprocess user message to base64"""
+        english_msg = self.user_template.format(prompt=message)
+        try:
+            base64 = english_to_base64(english_msg)
+        except:
+            raise ValueError(f"Failed to convert message to base64: {english_msg}")
+        return base64
+    
+
+    def preprocess_asst_message(self, message: str) -> str:
+        """Preprocess assistant message to base64"""
+        english_msg = self.answer_template.format(answer=message)
+        try:
+            base64 = english_to_base64(english_msg)
+        except:
+            raise ValueError(f"Failed to convert message to base64: {english_msg}")
+        return base64
+    
+    
+    def postprocess(self, message: str) -> dict:
+        """Postprocess model output expecting a base64 response"""
+        try:
+            english_response = base64_to_english(message) # expect base64 response
+        except Exception as e:
+            # keep the response in-tact for record
+            english_response = message + f"\n\nFailed: {e}"
+        match = re.search(self.answer_regex, english_response)
+        extracted_answer = match.group(1) if match else ""
+        return {"extracted_answer": extracted_answer}

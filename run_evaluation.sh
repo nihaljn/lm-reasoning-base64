@@ -3,14 +3,29 @@ model_name="gpt-4o"
 temperature="0.0"
 max_tokens="1024"
 num_threads="25"
-rpm_limit="100"
+rpm_limit="50"
 
 # variants
-system_prompt="assistant"
-evaluator="english_evaluator"
-few_shot_k="0"
+# english -- no few shot -- no CoT
+# system_prompt="assistant"
+# evaluator="english_evaluator"
+# few_shot_k="0"
+# num_digits="$1"
+# num_examples="10000" # big number indicates to use all examples
+
+# base64 -- no few shot -- no CoT
+# system_prompt="base64_assistant"
+# evaluator="base64_evaluator"
+# few_shot_k="0"
+# num_digits="$1"
+# num_examples="1000000" # big number like 1000000 indicates to use all examples
+
+# base64 -- few shot -- no CoT
+system_prompt="base64_assistant"
+evaluator="base64_evaluator"
+few_shot_k="3"
 num_digits="$1"
-num_examples="10000" # big number indicates to use all examples
+num_examples="1000000" # big number like 1000000 indicates to use all examples
 
 # paths
 data_root="data/arithmetic/"

@@ -5,16 +5,16 @@ from multiprocessing import Pool
 import pandas as pd
 from tqdm import tqdm
 
-from arithmetic_evaluator import ArithmeticEvaluator
+from arithmetic_evaluator import ArithmeticEvaluator, ArithmeticEvaluator_Base64
 
 SYS_PROMPT_STORE = {
-    "assistant": "You are a helpful assistant."
+    "assistant": "You are a helpful assistant.",
+    "base64_assistant": "You are a helpful assistant who can understand and respond only in base64."
 }
 
 EVALUATOR_STORE = {
     "english_evaluator": ArithmeticEvaluator,
-    "english_cot_evaluator": None,
-    "base64_evaluator": None,
+    "base64_evaluator": ArithmeticEvaluator_Base64,
     "base64_cot_evaluator": None,
 }
 
@@ -43,7 +43,7 @@ def main():
     parser.add_argument("--rpm_limit", type=float, default=20)
     parser.add_argument("--num_examples", type=int, default=None)
     parser.add_argument("--system_prompt", type=str, default="assistant",
-                        choices=["assistant"])
+                        choices=["assistant", "base64_assistant"])
     parser.add_argument("--evaluator", type=str, default="english_evaluator",)
     parser.add_argument("--model_name", type=str, default="gpt-4o",
                         choices=["gpt-4o"])
@@ -73,7 +73,8 @@ def main():
     args.num_threads = min(args.num_threads, len(data))
     rpm_limit = args.rpm_limit / args.num_threads
     EvaluatorClass = EVALUATOR_STORE[args.evaluator]
-    filename = f"{args.model_name}_n{args.num_examples}_t{args.temperature}_k{args.few_shot_k}.jsonl"
+    filename = f"{args.model_name}_n{args.num_examples}_t{args.temperature}_k{args.few_shot_k}"
+    filename += f"_{args.system_prompt}_{args.evaluator}.jsonl"
     output_path = os.path.join(args.out_root_dir, filename)
     if not os.path.exists(args.out_root_dir):
         print(f"Creating directory: {args.out_root_dir}")
@@ -97,7 +98,7 @@ def main():
         tasks.append(task)
     # run the tasks
     with Pool(args.num_threads) as p:
-        list(tqdm(p.imap(runner, tasks), total=len(tasks), ncols=80))
+        list(tqdm(p.imap_unordered(runner, tasks), total=len(tasks), ncols=80))
     
     # cleanup
     with open(output_path, "w") as f:
