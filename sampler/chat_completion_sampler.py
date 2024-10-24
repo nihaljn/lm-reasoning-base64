@@ -5,13 +5,23 @@ from typing import Any
 import openai
 from openai import OpenAI
 
-from custom_types import MessageList, SamplerBase
-
 OPENAI_SYSTEM_MESSAGE_API = "You are a helpful assistant."
 OPENAI_SYSTEM_MESSAGE_CHATGPT = (
     "You are ChatGPT, a large language model trained by OpenAI, based on the GPT-4 architecture."
     + "\nKnowledge cutoff: 2023-12\nCurrent date: 2024-04-01"
 )
+Message = dict[str, Any]  # keys role, content
+MessageList = list[Message]
+
+
+class SamplerBase:
+    """
+    Base class for defining a sampling model, which can be evaluated,
+    or used as part of the grading process.
+    """
+
+    def __call__(self, message_list: MessageList) -> str: # type: ignore
+        raise NotImplementedError
 
 
 class ChatCompletionSampler(SamplerBase):

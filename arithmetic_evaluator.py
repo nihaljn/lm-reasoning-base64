@@ -68,7 +68,7 @@ class ArithmeticEvaluator_Base64(ArithmeticEvaluator):
             raise ValueError(f"Failed to convert message to base64: {english_msg}")
         return base64
     
-    
+
     def postprocess(self, message: str) -> dict:
         """Postprocess model output expecting a base64 response"""
         try:
@@ -79,3 +79,58 @@ class ArithmeticEvaluator_Base64(ArithmeticEvaluator):
         match = re.search(self.answer_regex, english_response)
         extracted_answer = match.group(1) if match else ""
         return {"extracted_answer": extracted_answer}
+
+
+class ArithmeticEvaluator_Base64_CoT_English(ArithmeticEvaluator_Base64):
+    """Arithmetic Evaluator with base64 encoding allowing CoT reasoning"""
+    
+    def postprocess(self, message: str) -> dict:
+        """Postprocess model output expecting a base64 response"""
+        # find and remove the thought tokens
+        thoughts_start, thoughts_end = (
+            message.find("<thoughts>"), 
+            message.rfind("</thoughts>") + len("</thoughts>")
+        )
+        if thoughts_start >= 0 and thoughts_end > 0:
+            thoughts = message[thoughts_start:thoughts_end]
+        else:
+            thoughts = ""
+        message = message[thoughts_end:]
+
+        # try to decode the rest of the response
+        try:
+            english_response = base64_to_english(message) # expect base64 response
+        except Exception as e:
+            # keep the response in-tact for record
+            english_response = message + f"\n\nFailed: {e}"
+        match = re.search(self.answer_regex, english_response)
+        extracted_answer = match.group(1) if match else ""
+        return {"chain_of_thought": thoughts, "extracted_answer": extracted_answer}
+
+
+class ArithmeticEvaluator_Base64_CoT_Base64(ArithmeticEvaluator_Base64):
+    """Arithmetic Evaluator with base64 encoding allowing CoT reasoning"""
+    
+    def postprocess(self, message: str) -> dict:
+        """Postprocess model output expecting a base64 response"""
+        # try to decode the response
+        try:
+            english_response = base64_to_english(message) # expect base64 response
+        except Exception as e:
+            # keep the response in-tact for record
+            english_response = message + f"\n\nFailed: {e}"
+        
+        # find and remove the thought tokens
+        thoughts_start, thoughts_end = (
+            english_response.find("<thoughts>"), 
+            english_response.rfind("</thoughts>") + len("</thoughts>")
+        )
+        if thoughts_start >= 0 and thoughts_end > 0:
+            thoughts = english_response[thoughts_start:thoughts_end]
+        else:
+            thoughts = ""
+        # try to extract the answer from the remaining response
+        english_response = english_response[thoughts_end:]
+        match = re.search(self.answer_regex, english_response)
+        extracted_answer = match.group(1) if match else ""
+        return {"chain_of_thought": thoughts, "extracted_answer": extracted_answer}

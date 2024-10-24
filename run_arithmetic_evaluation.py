@@ -5,17 +5,25 @@ from multiprocessing import Pool
 import pandas as pd
 from tqdm import tqdm
 
-from arithmetic_evaluator import ArithmeticEvaluator, ArithmeticEvaluator_Base64
+from arithmetic_evaluator import (ArithmeticEvaluator,
+                                  ArithmeticEvaluator_Base64,
+                                  ArithmeticEvaluator_Base64_CoT_Base64,
+                                  ArithmeticEvaluator_Base64_CoT_English)
 
 SYS_PROMPT_STORE = {
     "assistant": "You are a helpful assistant.",
-    "base64_assistant": "You are a helpful assistant who can understand and respond only in base64."
+    "base64_assistant": "You are a helpful assistant who can understand and respond only in base64.",
+    "base64_cot_english_assistant": "You are a helpful assistant who can understand and respond only in base64. "
+                                    "You think step-by-step in English within <thoughts> tags before following instructions.",
+    "base64_cot_base64_assistant": "You are a helpful assistant who can understand and respond only in base64. "
+                                   "You think step-by-step in base64 within <thoughts> tags before following instructions.",
 }
 
 EVALUATOR_STORE = {
     "english_evaluator": ArithmeticEvaluator,
     "base64_evaluator": ArithmeticEvaluator_Base64,
-    "base64_cot_evaluator": None,
+    "base64_cot_english_evaluator": ArithmeticEvaluator_Base64_CoT_English,
+    "base64_cot_base64_evaluator": ArithmeticEvaluator_Base64_CoT_Base64,
 }
 
 
@@ -43,8 +51,13 @@ def main():
     parser.add_argument("--rpm_limit", type=float, default=20)
     parser.add_argument("--num_examples", type=int, default=None)
     parser.add_argument("--system_prompt", type=str, default="assistant",
-                        choices=["assistant", "base64_assistant"])
-    parser.add_argument("--evaluator", type=str, default="english_evaluator",)
+                        choices=["assistant", "base64_assistant",
+                                 "base64_cot_english_assistant",
+                                 "base64_cot_base64_assistant"])
+    parser.add_argument("--evaluator", type=str, default="english_evaluator",
+                        choices=["english_evaluator", "base64_evaluator",
+                                 "base64_cot_english_evaluator",
+                                 "base64_cot_base64_evaluator"])
     parser.add_argument("--model_name", type=str, default="gpt-4o",
                         choices=["gpt-4o"])
     parser.add_argument("--few_shot_k", type=int, default=0)
