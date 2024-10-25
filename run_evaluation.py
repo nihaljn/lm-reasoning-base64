@@ -9,6 +9,7 @@ from arithmetic_evaluator import (ArithmeticEvaluator,
                                   ArithmeticEvaluator_Base64,
                                   ArithmeticEvaluator_Base64_CoT_Base64,
                                   ArithmeticEvaluator_Base64_CoT_English)
+from translation_evaluator import TranlsationEvaluator_Base64ToEnglish
 
 SYS_PROMPT_STORE = {
     "assistant": "You are a helpful assistant.",
@@ -24,6 +25,7 @@ EVALUATOR_STORE = {
     "base64_evaluator": ArithmeticEvaluator_Base64,
     "base64_cot_english_evaluator": ArithmeticEvaluator_Base64_CoT_English,
     "base64_cot_base64_evaluator": ArithmeticEvaluator_Base64_CoT_Base64,
+    "translation_evaluator": TranlsationEvaluator_Base64ToEnglish,
 }
 
 
@@ -57,7 +59,8 @@ def main():
     parser.add_argument("--evaluator", type=str, default="english_evaluator",
                         choices=["english_evaluator", "base64_evaluator",
                                  "base64_cot_english_evaluator",
-                                 "base64_cot_base64_evaluator"])
+                                 "base64_cot_base64_evaluator",
+                                 "translation_evaluator"])
     parser.add_argument("--model_name", type=str, default="gpt-4o",
                         choices=["gpt-4o"])
     parser.add_argument("--few_shot_k", type=int, default=0)
@@ -78,6 +81,13 @@ def main():
         few_shot_data = few_shot_data[:args.few_shot_k]
     else:
         few_shot_data = None
+
+    if args.evaluator == "translation_evaluator":
+        # target should be the prompt itself
+        print("Setting target to prompt for translation evaluator")
+        data["target"] = data["prompt"]
+        if few_shot_data is not None:
+            few_shot_data["target"] = few_shot_data["prompt"]
 
     if args.num_threads <= 0:
         raise ValueError("num_threads should be a positive integer")
@@ -106,7 +116,6 @@ def main():
     # distribute tasks
     tasks = []
     for i in range(len(data)):
-        # evaluator = evaluators[i % args.num_threads]
         task = (i % args.num_threads, data.iloc[i], few_shot_data)
         tasks.append(task)
     # run the tasks
