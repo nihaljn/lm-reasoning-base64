@@ -1,6 +1,6 @@
 # Language Model Reasoning in Base64
 
-<em>Repository for the blog post: [Language Model Reasoning in Base64]().</em>
+<em>Repository for the blog post: [Language Model Reasoning in Base64](https://nihaljn.github.io/posts/language-model-reasoning-in-base64).</em>
 
 ## Introduction
 
